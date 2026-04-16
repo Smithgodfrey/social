@@ -9,11 +9,13 @@ const app = express();
 
 // Middleware
 
-const allowedOrigins = ['http://localhost:8080', 'https://masterchefsct.netlify.app/'];
 app.use(cors({
-    origin: allowedOrigins,
-    credentials: true
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+
 
 app.use(express.json());
 

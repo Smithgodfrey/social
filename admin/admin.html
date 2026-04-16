@@ -474,7 +474,32 @@
             </td></tr>`;
         }
       }
+      // In admin.html, before sending - resize image
+function resizeImage(file, maxWidth = 800, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const scale = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            callback(canvas.toDataURL('image/jpeg', 0.7)); // Compress to 70% quality
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
 
+// Use it in your save function:
+if (imageInput.files && imageInput.files[0]) {
+    resizeImage(imageInput.files[0], 800, async function(resizedImage) {
+        payload.image = resizedImage;
+        await saveToDatabase(payload);
+    });
+}
       // Clear all logs
       async function clearLogs() {
         if (!confirm("⚠️ Are you sure you want to delete ALL activity logs?"))
