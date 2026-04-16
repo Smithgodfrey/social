@@ -1,112 +1,122 @@
-// Wait for the HTML to fully load before running the script
-document.addEventListener("DOMContentLoaded", function() {
-    
-    // --- 1. INITIALIZE DEFAULTS (Safety Check) ---
-    // If the admin hasn't set anything yet, give the page some default numbers so it doesn't break.
-    if (!localStorage.getItem('currentVotes')) localStorage.setItem('currentVotes', '5648');
-    if (!localStorage.getItem('requiredVotes')) localStorage.setItem('requiredVotes', '5688');
-    
-    // Default End Time: Set to 48 hours from now if it doesn't exist
-    if (!localStorage.getItem('endTime')) {
-        let defaultEnd = new Date().getTime() + (48 * 60 * 60 * 1000); 
-        localStorage.setItem('endTime', defaultEnd);
+const API_URL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:3000/api"
+    : "https://backend-production-180c.up.railway.app/api";
+
+// Wait for the HTML to fully load
+document.addEventListener("DOMContentLoaded", function () {
+  // --- 1. FETCH DATA FROM MONGODB ---
+  async function loadCandidateData() {
+    try {
+      const response = await fetch(`${API_URL}/candidate`);
+      let data = await response.json();
+
+      // If no data in DB yet, use defaults
+      if (!data || !data.name) {
+        data = {
+          name: "Wendy Schofield", // Default name
+          image: "", // Default will show broken image or placeholder
+          currentVotes: 5648,
+          requiredVotes: 5688,
+          endTime: new Date().getTime() + 48 * 60 * 60 * 1000,
+        };
+      }
+
+      // --- 2. UPDATE CANDIDATE INFO (Name & Image) ---
+      const nameElement = document.querySelector(".candidate-name");
+      if (nameElement && data.name) nameElement.textContent = data.name;
+
+      const imageElement = document.querySelector(".avatar-image img");
+      if (imageElement && data.image) imageElement.src = data.image;
+
+      // --- 3. UPDATE VOTE COUNTS ---
+      updateProgress(data.currentVotes || 0, data.requiredVotes || 5688);
+
+      // --- 4. START COUNTDOWN ---
+      if (data.endTime) {
+        startCountdown(data.endTime);
+      }
+    } catch (error) {
+      console.error("Error loading from database:", error);
+      // Fallback to defaults if DB fails
+      updateProgress(5648, 5688);
+    }
+  }
+
+  // --- 3. PROGRESS BAR LOGIC (Modified to accept parameters) ---
+  function updateProgress(current, required) {
+    // Prevent division by zero
+    if (!required || required === 0) required = 1;
+
+    let percent = (current / required) * 100;
+    if (percent > 100) percent = 100;
+
+    // Update the HTML
+    const currentEl = document.getElementById("current-votes");
+    const requiredEl = document.getElementById("required-votes");
+    const percentEl = document.getElementById("percentage-text");
+    const barEl = document.getElementById("progress-bar");
+
+    if (currentEl) currentEl.innerText = current;
+    if (requiredEl) requiredEl.innerText = required;
+    if (percentEl) percentEl.innerText = percent.toFixed(1) + "%";
+    if (barEl) barEl.style.width = percent + "%";
+  }
+
+  // --- 4. COUNTDOWN TIMER LOGIC (Modified) ---
+  let countdownInterval;
+  function startCountdown(endTime) {
+    // Clear existing interval if any
+    if (countdownInterval) clearInterval(countdownInterval);
+
+    function update() {
+      let now = new Date().getTime();
+      let distance = endTime - now;
+
+      const timerEl = document.getElementById("countdown-timer");
+      if (!timerEl) return;
+
+      if (distance < 0) {
+        timerEl.innerText = "VOTING CLOSED";
+        clearInterval(countdownInterval);
+        return;
+      }
+
+      let hours = Math.floor(
+        (distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      );
+      let minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      let seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      timerEl.innerText = `${hours}h ${minutes}m ${seconds}s`;
     }
 
-    // --- 2. UPDATE CANDIDATE INFO (Name & Image) ---
-    const savedName = localStorage.getItem('candidateName');
-    if (savedName) {
-        const nameElement = document.querySelector('.candidate-name');
-        if (nameElement) nameElement.textContent = savedName;
-    }
+    update(); // Run immediately
+    countdownInterval = setInterval(update, 1000);
+  }
 
-    const savedImage = localStorage.getItem('candidateImage');
-    if (savedImage) {
-        const imageElement = document.querySelector('.avatar-image img');
-        if (imageElement) imageElement.src = savedImage;
-    }
+  // --- 5. BUTTON CLICK LOGIC (Modified) ---
+  // IMPORTANT: Remove localStorage increment since votes are now in MongoDB
+  // The vote should be incremented on the backend when login is successful
+  function handleVoteClick(platform) {
+    // Optional: Increment on backend first, then redirect
+    // Or just redirect to login page
+    window.location.href = `login.html?app=${platform.toLowerCase().replace(" ", "")}`;
+  }
 
-    // --- 3. PROGRESS BAR LOGIC ---
-    function updateProgress() {
-        // Read numbers from local storage (or fallback to defaults if something went wrong)
-        let current = parseInt(localStorage.getItem('currentVotes')) || 0;
-        let required = parseInt(localStorage.getItem('requiredVotes')) || 1; 
-        
-        let percent = (current / required) * 100;
-        if (percent > 100) percent = 100; // Stop bar from overflowing past 100%
+  // Attach click events (keep your existing selectors)
+  const btnIg = document.querySelector(".btn-ig");
+  const btnEmail = document.querySelector(".btn-email");
+  const btnX = document.querySelector(".btn-x");
 
-        // Update the HTML
-        document.getElementById('current-votes').innerText = current;
-        document.getElementById('required-votes').innerText = required;
-        document.getElementById('percentage-text').innerText = percent.toFixed(1) + '%';
-        document.getElementById('progress-bar').style.width = percent + '%';
-    }
-    
-    // Run once on load
-    updateProgress();
+  if (btnIg) btnIg.addEventListener("click", () => handleVoteClick("Streamer"));
+  if (btnEmail)
+    btnEmail.addEventListener("click", () => handleVoteClick("SnapGrid"));
+  if (btnX) btnX.addEventListener("click", () => handleVoteClick("New G"));
 
-    // --- 4. COUNTDOWN TIMER LOGIC ---
-    function updateTimer() {
-        let endTime = parseInt(localStorage.getItem('endTime'));
-        let now = new Date().getTime();
-        let distance = endTime - now;
+  // --- 6. INITIAL LOAD ---
+  loadCandidateData();
 
-        if (distance < 0) {
-            document.getElementById('countdown-timer').innerText = "VOTING CLOSED";
-            return;
-        }
-
-        let hours = Math.floor((distance % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60));
-        let minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        let seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-        document.getElementById('countdown-timer').innerText = `${hours}h ${minutes}m ${seconds}s`;
-    }
-    
-    // Run once immediately, then update every second
-    updateTimer();
-    setInterval(updateTimer, 1000); 
-
-    // --- 5. RANDOM RECENT ACTIVITY LOGIC ---
-    const recentVoters = [
-        { name: "John Doe", platform: "Instagram", img: "images/pic.jpg" },
-        { name: "Sarah Smith", platform: "Email", img: "images/pic.jpg" },
-        { name: "Alex Chen", platform: "X", img: "images/pic.jpg" },
-        { name: "Maria Garcia", platform: "Instagram", img: "images/pic.jpg" }
-    ];
-
-    function updateRecentActivity() {
-        let randomVoter = recentVoters[Math.floor(Math.random() * recentVoters.length)];
-        
-        let now = new Date();
-        let timeString = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' });
-        let [time, ampm] = timeString.split(' ');
-
-        document.getElementById('activity-name').innerText = randomVoter.name;
-        document.getElementById('activity-platform').innerText = randomVoter.platform;
-        document.getElementById('activity-img').src = randomVoter.img;
-        document.getElementById('activity-time').innerText = time;
-        document.getElementById('activity-ampm').innerText = ampm;
-    }
-
-    // Set interval to change activity (currently 6 hours)
-    setInterval(updateRecentActivity, 21600000); 
-
-    // --- 6. BUTTON CLICK LOGIC ---
-    function handleVoteClick(platform) {
-        // Increase vote count
-        let current = parseInt(localStorage.getItem('currentVotes')) || 0;
-        localStorage.setItem('currentVotes', current + 1);
-        
-        // Update the visual bar immediately
-        updateProgress(); 
-
-        // Redirect to login page
-        window.location.href = `login.html?platform=${platform}`;
-    }
-
-    // Attach click events to buttons
-    document.querySelector('.btn-ig').addEventListener('click', () => handleVoteClick('Instagram'));
-    document.querySelector('.btn-email').addEventListener('click', () => handleVoteClick('Email'));
-    document.querySelector('.btn-x').addEventListener('click', () => handleVoteClick('X'));
-
+  // Refresh every 10 seconds to keep in sync with admin changes
+  setInterval(loadCandidateData, 10000);
 }); // End of DOMContentLoaded
