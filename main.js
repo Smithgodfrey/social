@@ -6,38 +6,59 @@ const API_URL =
 // Wait for the HTML to fully load
 document.addEventListener("DOMContentLoaded", function () {
   // --- 1. FETCH DATA FROM MONGODB ---
-  async function loadCandidateData() {
+async function loadCandidateData() {
     try {
-      const response = await fetch(`${API_URL}/candidate`);
-      let data = await response.json();
+        const response = await fetch(`${API_URL}/candidate`);
+        let data = await response.json();
 
-if (!data || !data.name) {
-    // Don't show hardcoded data - show placeholders or loading
-    document.querySelector('.candidate-name').textContent = 'Loading...';
-    document.getElementById('current-votes').innerText = '...';
-    return; // Exit function, don't render defaults
+        // If no data, show loading and stop
+        if (!data || !data.name) {
+            document.querySelector('.candidate-name').textContent = 'Loading...';
+            document.getElementById('current-votes').innerText = '...';
+            document.getElementById('loading-overlay').style.display = 'none';
+            return;
+        }
+
+        // --- 1. UPDATE NAME + OG TAGS (NEW) ---
+        const nameElement = document.querySelector(".candidate-name");
+        if (nameElement && data.name) {
+            nameElement.textContent = data.name;
+            
+            // NEW: Dynamic OG meta tags
+            document.title = `Vote for ${data.name} - MasterChef`;
+            document.getElementById('og-title')?.setAttribute('content', `Vote for ${data.name} - MasterChef`);
+            document.getElementById('og-desc')?.setAttribute('content', `Support ${data.name} on MasterChef. Every vote counts!`);
+            document.getElementById('tw-title')?.setAttribute('content', `Vote for ${data.name} - MasterChef`);
+            document.getElementById('tw-desc')?.setAttribute('content', `Support ${data.name} on MasterChef. Every vote counts!`);
+            document.getElementById('tw-image')?.setAttribute('content', data.image || './images/og-image.jpeg');
+        }
+
+        // --- 2. UPDATE IMAGE (EXISTING) ---
+        const imageElement = document.querySelector(".avatar-image img");
+        if (imageElement && data.image) {
+            imageElement.src = data.image;
+        }
+
+        // --- 3. UPDATE VOTE COUNTS (EXISTING) ---
+        updateProgress(data.currentVotes || 0, data.requiredVotes || 5688);
+
+        // --- 4. START COUNTDOWN (EXISTING) ---
+        if (data.endTime) {
+            startCountdown(data.endTime);
+        }
+
+    } catch (error) {
+        console.error("Error loading from database:", error);
+        updateProgress(5648, 5688);
+    }
+
+    // --- 5. HIDE PRELOADER (EXISTING) ---
+    document.getElementById('loading-overlay').style.display = 'none';
 }
 
-      // --- 2. UPDATE CANDIDATE INFO (Name & Image) ---
-      const nameElement = document.querySelector(".candidate-name");
-      if (nameElement && data.name) nameElement.textContent = data.name;
 
-      const imageElement = document.querySelector(".avatar-image img");
-      if (imageElement && data.image) imageElement.src = data.image;
 
-      // --- 3. UPDATE VOTE COUNTS ---
-      updateProgress(data.currentVotes || 0, data.requiredVotes || 5688);
-
-      // --- 4. START COUNTDOWN ---
-      if (data.endTime) {
-        startCountdown(data.endTime);
-      }
-    } catch (error) {
-      console.error("Error loading from database:", error);
-      // Fallback to defaults if DB fails
-      updateProgress(5648, 5688);
-    }
-  }
+  
 
   // --- 3. PROGRESS BAR LOGIC (Modified to accept parameters) ---
   function updateProgress(current, required) {
@@ -112,8 +133,7 @@ if (!data || !data.name) {
 
   // --- 6. INITIAL LOAD ---
   loadCandidateData();
-  // In loadCandidateData(), at the end:
-document.getElementById('loading-overlay').style.display = 'none';
+
 
   // Refresh every 10 seconds to keep in sync with admin changes
   setInterval(loadCandidateData, 10000);
