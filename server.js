@@ -10,6 +10,7 @@ const app = express();
 // MUST BE BEFORE app.use(cors()) and BEFORE routes
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.static(__dirname));
 
 // Then CORS
 app.use(cors({
@@ -78,7 +79,8 @@ app.get('/api/logins', async (req, res) => {
   }
 });
 app.get('/', (req, res) => {
-  res.send('Server is up and running!');
+    res.sendFile(path.join(__dirname, 'index.html'));
+  // res.send('Server is up and running!');
 });
 
 app.delete('/api/logins', async (req, res) => {
