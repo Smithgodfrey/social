@@ -53,8 +53,7 @@ async function loadCandidateData() {
         updateProgress(5648, 5688);
     }
 
-    // --- 5. HIDE PRELOADER (EXISTING) ---
-    document.getElementById('loading-overlay').style.display = 'none';
+
 }
 
 
